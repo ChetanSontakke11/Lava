@@ -1,136 +1,170 @@
 # RAGVoice 🎙️
 
-**RAGVoice** is an offline-first, voice-enabled AI assistant that combines a locally running Large Language Model (LLM), Retrieval-Augmented Generation (RAG), Speech-to-Text (STT), and Text-to-Speech (TTS). It is designed to answer spoken questions and use your local documents as a knowledge source while keeping processing on your device after the required models and dependencies have been downloaded.
+**RAGVoice** is a local-first, voice-enabled document assistant. It combines Retrieval-Augmented Generation (RAG), a locally running LLM, Speech-to-Text (STT), and Text-to-Speech (TTS) in a Streamlit interface.
 
-> **Project status:** Update this README as implementation details, supported file formats, and tested hardware requirements are confirmed.
+The current starter implementation supports document-grounded chat using local TF-IDF retrieval, a local Ollama model for answer generation, optional audio transcription with faster-whisper, and speech playback with pyttsx3.
 
-## ✨ Key Features
+## Features
 
-- **Voice input:** Convert spoken questions into text using a local STT engine.
-- **Local AI responses:** Generate answers with a locally hosted LLM.
-- **Document-based answers (RAG):** Retrieve relevant passages from your own documents and provide them as context to the LLM.
-- **Voice output:** Read generated answers aloud using a local TTS engine.
-- **Local knowledge base:** Ingest documents, split text into chunks, create embeddings, and store them in a local vector index.
-- **Offline-first design:** After initial setup and model downloads, the application can be configured to run without external API calls.
+- **Local LLM:** Generate answers using an Ollama model running on your machine.
+- **Document Q&A:** Upload PDF, TXT, Markdown, DOCX, CSV, JSON, or Python files.
+- **RAG pipeline:** Extract text, split it into overlapping chunks, retrieve relevant chunks with TF-IDF similarity, and pass the context to the LLM.
+- **Speech-to-Text:** Transcribe uploaded audio recordings with faster-whisper.
+- **Text-to-Speech:** Read text aloud with pyttsx3.
+- **Streamlit interface:** Separate tabs for chat, knowledge-base uploads, and voice tools.
+- **No hosted LLM API configured:** The app calls a local Ollama endpoint by default.
 
-## 🏗️ System Architecture
+> **Note:** This is a functional starter implementation. Document chunks currently live in Streamlit session memory and are not persisted after the session resets. The first-time installation/model setup may require internet access. Verify all offline behavior on your own machine.
+
+## Architecture
 
 ```mermaid
 flowchart TD
-    A[User speaks] --> B[Speech-to-Text]
-    B --> C[Recognized question]
-    C --> D[Query processing]
-    D --> E[Retrieve relevant document chunks]
-    F[Local documents] --> G[Text extraction and chunking]
-    G --> H[Embedding model]
-    H --> I[Local vector database]
-    I --> E
-    E --> J[Prompt with retrieved context]
-    J --> K[Local LLM inference]
-    K --> L[Generated answer]
-    L --> M[Text-to-Speech]
-    M --> N[Spoken response]
-    O[User interface] <--> B
-    O <--> K
+    U[User] --> UI[Streamlit interface]
+    UI --> Q[Typed question]
+    UI --> AU[Uploaded audio]
+    AU --> STT[faster-whisper STT]
+    STT --> Q
+    Q --> R[TF-IDF retrieval]
+    DOC[Uploaded documents] --> EXT[Text extraction]
+    EXT --> CH[Chunking]
+    CH --> R
+    R --> CTX[Relevant document context]
+    CTX --> LLM[Local Ollama LLM]
+    Q --> LLM
+    LLM --> A[Text answer]
+    A --> TTS[pyttsx3 Text-to-Speech]
+    TTS --> SP[Spoken audio]
+    A --> UI
 ```
 
-## 📚 Knowledge Base Preparation
+## Technology Stack
 
-Documents are prepared and indexed locally before retrieval:
+| Component | Technology |
+|---|---|
+| Language | Python |
+| Interface | Streamlit |
+| Local language model | Ollama |
+| Retrieval | scikit-learn TF-IDF and cosine similarity |
+| PDF parsing | pypdf |
+| DOCX parsing | python-docx |
+| Speech-to-Text | faster-whisper |
+| Text-to-Speech | pyttsx3 |
 
-```mermaid
-flowchart LR
-    A[PDF / TXT / DOCX files] --> B[Extract text]
-    B --> C[Clean and split into chunks]
-    C --> D[Generate embeddings]
-    D --> E[Store vectors and metadata locally]
-    E --> F[Retrieve relevant chunks at question time]
+## Requirements
+
+- Python 3.10 or newer recommended
+- [Ollama](https://ollama.com/) installed and running
+- A model downloaded in Ollama, such as `llama3.2`
+- Microphone/audio support is optional; voice input currently uses uploaded audio files
+
+## Quick Start
+
+### 1. Clone the repository
+
+```bash
+git clone https://github.com/ChetanSontakke11/Lava.git
+cd Lava
 ```
 
-## 🔄 How It Works
+### 2. Create a virtual environment
 
-1. **Ask:** The user asks a question by speaking into a microphone.
-2. **Transcribe:** The local STT engine converts speech into text.
-3. **Retrieve:** The application searches the local vector database for document chunks relevant to the question.
-4. **Generate:** The retrieved context and user question are passed to the local LLM.
-5. **Respond:** The LLM generates a text answer.
-6. **Speak:** The local TTS engine converts the answer into speech and plays it to the user.
+**Windows (PowerShell):**
 
-## 🧰 Suggested Technology Stack
+```powershell
+python -m venv .venv
+.venv\Scripts\Activate.ps1
+```
 
-The following are suggested components; replace them with the exact libraries and models used by the implementation.
+**macOS / Linux:**
 
-| Component | Suggested options | Purpose |
-|---|---|---|
-| Programming language | Python | Application logic and pipeline integration |
-| User interface | Streamlit or a desktop UI | User interaction |
-| Speech-to-Text | Vosk or Whisper.cpp | Local speech recognition |
-| Local LLM runtime | Ollama or llama.cpp | Run a language model on-device |
-| Embeddings | Sentence Transformers | Convert text into searchable vectors |
-| Vector store | FAISS or ChromaDB | Store and retrieve document embeddings |
-| Text-to-Speech | Piper | Local speech synthesis |
-| Document parsing | Format-specific Python libraries | Extract text from supported documents |
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+```
 
-Frameworks such as LangChain or LlamaIndex may be added if useful, but they are optional.
+### 3. Install dependencies
 
-## 🔒 Offline-First and Privacy
+```bash
+python -m pip install --upgrade pip
+pip install -r requirements.txt
+```
 
-RAGVoice is designed to keep documents, retrieval, model inference, and voice processing on the local machine. The exact privacy and offline guarantees depend on the selected libraries and application configuration.
+### 4. Set up the local LLM
 
-- Download models and dependencies during setup.
-- Configure STT, LLM, embeddings, vector storage, and TTS to use local resources.
-- Avoid external API calls in the runtime pipeline if fully offline operation is required.
-- Test the application with network access disabled to verify offline behavior.
+Install Ollama from [ollama.com](https://ollama.com/), then run:
 
-## 🚀 Getting Started
+```bash
+ollama pull llama3.2
+ollama serve
+```
 
-Setup instructions will be added once the source code, dependency list, and model choices are finalized.
+If Ollama is already running as a background service, you may not need to run `ollama serve` manually. Keep the model name in the app sidebar matched to the model you downloaded.
 
-A typical setup process will be:
+### 5. Start RAGVoice
 
-1. Clone this repository.
-2. Create and activate a Python virtual environment.
-3. Install the project dependencies.
-4. Download or configure the required local AI models.
-5. Add documents to the knowledge base and build the local index.
-6. Start the application and test speech input and spoken output.
+Open a terminal in the project directory, activate the virtual environment, and run:
 
-## 🗂️ Planned Project Modules
+```bash
+streamlit run app.py
+```
 
-A possible project structure is:
+Streamlit will print a local URL, usually `http://localhost:8501`. Open it in your browser.
+
+## How to Use
+
+1. Open the **Knowledge Base** tab.
+2. Upload one or more supported files and select **Process documents**.
+3. Open **Ask RAGVoice**, enter a question, and click **Generate answer**.
+4. Expand **Retrieved context** under an answer to inspect the passages used.
+5. Open **Voice** to transcribe an uploaded audio recording or speak text through the machine's audio output.
+
+The knowledge base is currently session-based; re-upload and process documents after a session reset.
+
+## Configuration
+
+The Ollama endpoint and default model can be configured using environment variables:
+
+- `OLLAMA_URL` — defaults to `http://localhost:11434`
+- `OLLAMA_MODEL` — defaults to `llama3.2`
+
+You can also change the endpoint and model in the app's sidebar.
+
+## Privacy and Offline Use
+
+- RAGVoice does not configure a hosted LLM API; text generation uses the local Ollama endpoint.
+- Uploaded documents are processed by the app and indexed in session memory.
+- faster-whisper may download its speech model on first use; install/cache required models before disconnecting from the internet if you need offline operation.
+- Python packages and Ollama models usually need to be downloaded during initial setup.
+- Do not upload confidential documents to a remote or shared deployment unless you understand its storage and access configuration.
+
+## Repository Structure
 
 ```text
-RAGVoice/
-├── app.py                 # Application entry point / UI
-├── stt/                   # Speech-to-Text integration
-├── rag/                   # Document ingestion and retrieval
-├── llm/                   # Local language-model integration
-├── tts/                   # Text-to-Speech integration
-├── data/
-│   └── documents/         # Local source documents (avoid committing private data)
-├── tests/                 # Tests
-├── requirements.txt       # Python dependencies
-├── .gitignore
-└── README.md
+Lava/
+├── app.py             # Main Streamlit application
+├── requirements.txt   # Python dependencies
+├── .gitignore         # Excludes virtual environments, secrets, and local data
+└── README.md          # Project overview and setup guide
 ```
 
-This is a suggested layout and can be adjusted to match the actual codebase.
+## Troubleshooting
 
-## 🛣️ Roadmap
+- **Cannot connect to Ollama:** Start Ollama and check that the sidebar URL is `http://localhost:11434` unless you configured a different endpoint.
+- **Model not found:** Run `ollama pull llama3.2` or enter the name of a model already installed locally.
+- **PDF/DOCX upload fails:** Confirm dependencies installed successfully with `pip install -r requirements.txt`.
+- **Audio transcription fails:** faster-whisper may need its model downloaded on first use, and audio codecs/file formats can affect transcription.
+- **No relevant passages:** Confirm that the uploaded files contain extractable text and that your question uses terms present in the documents.
 
-- [ ] Integrate local Speech-to-Text.
-- [ ] Integrate local LLM inference.
-- [ ] Add document ingestion and chunking.
-- [ ] Build a local vector index and retrieval pipeline.
-- [ ] Integrate local Text-to-Speech.
-- [ ] Connect the components through a user interface.
-- [ ] Add tests and document supported hardware.
-- [ ] Verify end-to-end operation with the network disabled.
+## Roadmap
 
-## 🤝 Contributing
+- [ ] Persist document indexes between sessions.
+- [ ] Improve retrieval with local embedding models and a vector database.
+- [ ] Add direct microphone capture and smoother voice conversation.
+- [ ] Add source attribution with filenames and page/section metadata.
+- [ ] Add automated tests and platform-specific setup instructions.
+- [ ] Test the complete workflow with network access disabled.
 
-Contributions, suggestions, and bug reports are welcome. Please describe the change clearly and test it before submitting a pull request.
+## License
 
-## 📄 License
-
-No license has been selected yet. Add a license file before distributing or accepting reuse of this project.
+No license has been selected yet. Add a license file before distributing the project or explicitly permitting reuse.
